@@ -4,3 +4,4 @@ training_data/
 training_video/
 video_log/
 video_source/
+src/__pycache__

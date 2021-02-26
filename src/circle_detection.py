@@ -26,10 +26,9 @@ def get_circles(frame):
     blur_frame = cv2.GaussianBlur(frame, (11, 11), 50)
     gray_frame = cv2.cvtColor(blur_frame, 127, 255, cv2.COLOR_BGR2GRAY)
     # HoughCircles(Image, method, dp, minDist, param1: higher threshold of edge detection, param2: accumulator threshold )
-    # 40
-    dp = 2
-    circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT, dp, int(24/dp), param1=40, param2=11,
-                               minRadius=int(14/dp), maxRadius=int(24/dp))
+    circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT, Parameters.dp, Parameters.min_dist,
+                               param1=Parameters.edge_detection_upper_threshold, param2=Parameters.accumulator_threshold,
+                               minRadius=Parameters.min_rad, maxRadius=Parameters.max_rad)
 
     if circles is not None:
         if len(circles) > 0:
@@ -40,7 +39,7 @@ def get_circles(frame):
         circles = []
     return circles
 
-def make_cost_matrix(tracking_circles, detecting_circles):
+def make_cost_matrix(tracking_circles, detecting_circles, tracking_age):
     if len(tracking_circles) != 0 and len(detecting_circles) != 0:
         # Extract circle centers
         tracking_pos = np.array([[[circle[0], circle[1]]] for circle in tracking_circles])
@@ -51,12 +50,17 @@ def make_cost_matrix(tracking_circles, detecting_circles):
         # Find the distance between centers
         distance_matrix = np.transpose(tracking_matrix, axes=(1, 0, 2)) - detecting_matrix
         distance_matrix = np.linalg.norm(distance_matrix, axis=2)
+        # Add age weight
+        # wv = 1/(age+1), younger points get higher cost [less likely to be picked]
+        age_weight_vector = Parameters.max_weight_due_age * 1/((np.array(tracking_age)+1)/Parameters.age_for_weight_to_be_half)
+        age_weight_matrix = np.tile(np.transpose(age_weight_vector), (len(detecting_circles), 1))
+        cost_matrix = distance_matrix + age_weight_matrix
     else:
-        distance_matrix = []
-    return distance_matrix
+        cost_matrix = []
+    return cost_matrix
 
-def track_circles(tracking_circles, detecting_circles, min_cost = None):
-    cost_matrix = make_cost_matrix(tracking_circles.values(), detecting_circles)
+def track_circles(tracking_circles, detecting_circles, tracking_age, min_cost = None):
+    cost_matrix = make_cost_matrix(tracking_circles, detecting_circles, tracking_age)
     if len(cost_matrix) > 0:
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
         # Do not match pair if greater than min_cost
@@ -82,7 +86,6 @@ def assign_ids_to_detected(detected_circles, previous_index2ids, current_index_o
     # initialize circle_index_to_id with -1
     not_paired_circle_index = set([i for i in range(len(detected_circles))])
     paired_circles = {}
-    paired_index = set()
     # Assign ids to new circles using previous circles ids [Inherit Id from previously detected objects]
     for i in range(len(current_index_of_bubble)):
         index_to_map = current_index_of_bubble[i]
@@ -90,7 +93,7 @@ def assign_ids_to_detected(detected_circles, previous_index2ids, current_index_o
         id = previous_index2ids[index_to_map_to]
         circle = detected_circles[index_to_map]
         paired_circles[id] = circle
-        not_paired_circle_index.remove(i)
+        not_paired_circle_index.remove(current_index_of_bubble[i])
     # Assign new ids to circles that are left over [Assigning ids to newly detected objects]
     # only called when detected_circles_len > tracked_circles_len
     new_id = max(previous_index2ids) if len(previous_index2ids) !=0 else 0
@@ -127,20 +130,6 @@ def generate_training_data(frame,frame_id, circles, bubble_ids, image_size, file
                 raise ValueError(f"{file_path}/{frame_id}-{id}.jpg")
             # next_file_name += 1
 
-def assign_tracking_circles(tracking_circles, tracking_kalman_filters, detecting_circles, bubble_ids, newly_detected):
-    for i in range(len(detecting_circles)):
-        id = bubble_ids[i]
-        position_vector = [detecting_circles[i][0], detecting_circles[i][1]]
-        if i in newly_detected["index"]:
-            # Add newly detected circles as new circle
-            tracking_kalman_filters[id] = kf.KalmanFilter(position_vector, 0.01, 0.01, 0.0005)
-            tracking_circles[id] = detecting_circles[i]
-        else:
-            tracking_kalman_filters[id].update(position_vector)
-            updated_position = tracking_kalman_filters[id].get_position()
-            tracking_circles[id][0:2] = [updated_position[0], updated_position[1]]
-    return tracking_circles, tracking_kalman_filters
-
 class TrackingPoints:
     def __init__(self, max_age):
         # Contains position, and radius of circles
@@ -155,8 +144,9 @@ class TrackingPoints:
         :param new_points:  {id, [x,y,radius]}
         """
         for (id, circle) in new_circles.items():
-            self.kalman_filters[id] = kf.KalmanFilter(circle[:2], 0.01, 1, 0.0005)
-            self.circles[id] = [self.kalman_filters[id].X[0, 0], self.kalman_filters[id].X[0, 1], new_circles[id][2]]
+            self.kalman_filters[id] = kf.KalmanFilter(circle[:2], Parameters.dt, Parameters.std_model,
+                                                      Parameters.std_measurement)
+            self.circles[id] = self.kalman_filters[id].get_position() + [new_circles[id][2]]
             self.age[id] = 0
             self.age_since_last_detected[id] = 0
 
@@ -185,9 +175,30 @@ class TrackingPoints:
                 del self.age[id]
                 del self.age_since_last_detected[id]
 
+
+class Parameters:
+    # Kalman filter
+    dt = 1/30
+    std_model = 256
+    std_measurement = 0.5
+    # Preventing identity switch
+    max_age = 15
+    min_cost = 60
+    max_weight_due_age = 10
+    age_for_weight_to_be_half = 5
+    # Detecting circles
+    dp = 2
+    min_dist = int(24 / dp)
+    edge_detection_upper_threshold = 30
+    # edge_detection_upper_threshold = 40
+    accumulator_threshold = 11
+    min_rad = int(14 / dp)
+    max_rad = int(24 / dp)
+
+
 if __name__ == "__main__":
-    file_name = "C1.mp4"
-    vcap = cv2.VideoCapture(f"C:\\Users\\jinno\\OneDrive\\デスクトップ\\bscProject\\video_source\\{file_name}")
+    file_name = "A.mp4"
+    vcap = cv2.VideoCapture(f"C:\\Users\\jinno\\Documents\\portfolio\\portfolio\\droplet_tracker\\video_source\\{file_name}")
     TRAINING_DATA_PATH = "training_data/unlabeled"
     read_success, frame = vcap.read()
     tracking_points = None
@@ -201,7 +212,10 @@ if __name__ == "__main__":
         if tracking_points is not None and detecting_circles is not None:
             tracking_points.predict_points()
             # tracking_circles, tracking_kalman_filters = predict_tracking_circles(tracking_circles, tracking_kalman_filters)
-            previous_index_of_bubble, current_index_of_bubble = track_circles(tracking_points.circles, detecting_circles, min_cost=30)
+            previous_index_of_bubble, current_index_of_bubble = track_circles(list(tracking_points.circles.values()),
+                                                                              detecting_circles,
+                                                                              list(tracking_points.age.values()),
+                                                                              min_cost=Parameters.min_cost)
             newly_detected_circles, paired_circles = assign_ids_to_detected(detecting_circles, list(tracking_points.circles.keys()), current_index_of_bubble, previous_index_of_bubble)
             #generate_training_data(frame, frame_id, detecting_circles, bubble_ids, 65, TRAINING_DATA_PATH)
         else:
@@ -209,7 +223,7 @@ if __name__ == "__main__":
             newly_detected_circles, paired_circles = assign_ids_to_detected(detecting_circles, bubble_index2ids, [], [])
             if tracking_points is None:
                 # Initialize tracking circles
-                tracking_points = TrackingPoints(10)
+                tracking_points = TrackingPoints(Parameters.max_age)
 
         tracking_points.assign_new_points(newly_detected_circles)
         tracking_points.update_points(paired_circles)
@@ -226,8 +240,11 @@ if __name__ == "__main__":
 
         # plot_circles(detecting_circles, bubble_ids)
         plot_circles(list(tracking_points.circles.values()), list(tracking_points.circles.keys()))
-        plot_circles(list(newly_detected_circles.values())+list(paired_circles.values()), list(newly_detected_circles.keys())+list(paired_circles.keys()), color=(255, 0, 0))
-        cv2.putText(frame, "time: "+str(round(frame_id*1/30, 2)), (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255))
+        # plot_circles(list(newly_detected_circles.values())+list(paired_circles.values()), list(newly_detected_circles.keys())+list(paired_circles.keys()), color=(255, 0, 0))
+        plot_circles(list(newly_detected_circles.values()), list(newly_detected_circles.keys()), color=(255, 0, 0))
+        plot_circles(list(paired_circles.values()), list(paired_circles.keys()), color=(200, 100, 0))
+
+        cv2.putText(frame, "time: "+str(round(frame_id*Parameters.dt, 2)), (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255))
 
         """cv2.imshow("test", edge_frame)
         cv2.waitKey(0)"""
@@ -235,12 +252,12 @@ if __name__ == "__main__":
         # Save frames:
         if frame_id == 0:
             i = 0
-            while os.path.exists(f'video_log/{file_name.split(".")[0]}_result_{i}.avi'):
+            while os.path.exists(f'../video_log/{file_name.split(".")[0]}_result_{i}.avi'):
                 i += 1
             # This part is OS dependent
-            video_writer = cv2.VideoWriter(f'video_log/{file_name.split(".")[0]}_result_{i}.avi',
+            video_writer = cv2.VideoWriter(f'../video_log/{file_name.split(".")[0]}_result_{i}.avi',
                                            cv2.VideoWriter_fourcc(*"DIVX"),
-                                           30, (frame.shape[1], frame.shape[0]))
+                                           1/Parameters.dt, (frame.shape[1], frame.shape[0]))
             print(f"{file_name.split('.')[0]}_result_{i}.avi")
         else:
             video_writer.write(frame)
