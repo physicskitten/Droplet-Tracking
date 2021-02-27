@@ -59,7 +59,7 @@ def crop_image(frame, crop_size, center):
             cropped_frame = np.hstack((cropped_frame, padding))
         if bottom_right_y_out_of_bound:
             padding = np.tile(0, (bottom_right_padding[1], cropped_frame.shape[1], 3))
-            cropped_frame = np.vstack((padding, cropped_frame))
+            cropped_frame = np.vstack((cropped_frame, padding))
 
         if center[0] > frame_x or center[1] > frame_y:
             raise ValueError(f"center outside frame, center: {center}, frame: {frame.shape}")
@@ -118,7 +118,7 @@ def generate_training_data(training_data_seed):
         if len(frame_queue) == 5:
             """cv2.imshow("frame", frame)
             cv2.waitKey(0)"""
-            # generate_training_data_image(frame_queue, frame_id, training_data_seed, dir)
+            generate_training_data_image(frame_queue, frame_id, training_data_seed, dir)
             generate_training_data_video(frame_queue, frame_id, training_data_seed, dir)
             frame_queue.pop(0)
         frame_queue.append(frame)

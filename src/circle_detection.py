@@ -207,14 +207,14 @@ def find_output_file_name(src_file_name):
     return output_file_name
 
 if __name__ == "__main__":
-    file_name = "A_trim.mp4"
+    file_name = "C1a.mp4"
     output_file_name = find_output_file_name(file_name)
-    vcap = cv2.VideoCapture(f"C:\\Users\\jinno\\Documents\\portfolio\\portfolio\\droplet_tracker\\video_source\\{file_name}")
+    vcap = cv2.VideoCapture(f"..\\video_source\\{file_name}")
     read_success, frame = vcap.read()
     tracking_points = None
     bubble_index2ids = {}
     frame_id = 0
-    training_data_seed = TrainingDataSeed("A_trim", file_name, output_file_name, [20])
+    training_data_seed = TrainingDataSeed("C1a", file_name, output_file_name, [20])
     # This part is OS dependent
     video_writer = cv2.VideoWriter(f'../video_log/{output_file_name}',
                                    cv2.VideoWriter_fourcc(*"DIVX"),
