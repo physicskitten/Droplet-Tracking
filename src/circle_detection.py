@@ -5,6 +5,7 @@ import glob
 import os
 
 import kalman_filter as kf
+import training_data_generator as tg
 
 def plot_circles(circles, bubble_id, color = (0, 0, 255)):
     # Convert values from float to integer
@@ -20,11 +21,13 @@ def plot_circles(circles, bubble_id, color = (0, 0, 255)):
         # cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
         # draw the center of the circle
         cv2.circle(frame, (x, y), 1, color, 2)
-        cv2.putText(frame, str(id), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color)
+        cv2.putText(frame, str(id), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 2, color)
 
 def get_circles(frame):
     blur_frame = cv2.GaussianBlur(frame, (11, 11), 50)
-    gray_frame = cv2.cvtColor(blur_frame, 127, 255, cv2.COLOR_BGR2GRAY)
+    gray_frame = cv2.cvtColor(blur_frame, cv2.COLOR_BGR2GRAY)
+    if gray_frame.shape != frame.shape and frame.shape != blur_frame.shape:
+        raise ValueError("Shape has been altered during filter")
     # HoughCircles(Image, method, dp, minDist, param1: higher threshold of edge detection, param2: accumulator threshold )
     circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT, Parameters.dp, Parameters.min_dist,
                                param1=Parameters.edge_detection_upper_threshold, param2=Parameters.accumulator_threshold,
@@ -105,31 +108,6 @@ def assign_ids_to_detected(detected_circles, previous_index2ids, current_index_o
 
     return newly_detected_circles, paired_circles
 
-def generate_training_data(frame,frame_id, circles, bubble_ids, image_size, file_path):
-    # image_size must be odd
-    if image_size%2 == 0:
-        raise ValueError("Image size must be odd")
-    # File name to start from
-    # existing_matches = glob.glob(f'{file_path}\\*.jpg')
-    # Remove the file path and .jpg
-    # existing_file_names = [int(match.split("\\")[-1][:-4]) for match in existing_matches]
-    # next_file_name = max(existing_file_names) if len(existing_file_names) != 0 else 0
-    for i in range(len(circles)):
-        circle = circles[i]
-        id = bubble_ids[i]
-        # Crop image
-        x = circle[0]
-        y = circle[1]
-        top_left = [int(x-(image_size-1)/2), int(y-(image_size-1)/2)]
-        bottom_right = [top_left[0] + image_size, top_left[1] + image_size]
-        if top_left[0] >= 0 and top_left[1] >= 0 and bottom_right[0] < frame.shape[0] and bottom_right[1] < frame.shape[1]:
-            cropped_frame = frame[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-            # Save file
-            success = cv2.imwrite(f"{file_path}/{frame_id}-{id}.jpg", cropped_frame)
-            if success is False:
-                raise ValueError(f"{file_path}/{frame_id}-{id}.jpg")
-            # next_file_name += 1
-
 class TrackingPoints:
     def __init__(self, max_age):
         # Contains position, and radius of circles
@@ -196,28 +174,63 @@ class Parameters:
     max_rad = int(24 / dp)
 
 
+class TrainingDataSeed:
+    def __init__(self, name, src_video, output_video,true_ids):
+        """
+        :param name: (str) name of this seed
+        :param src_video: (str) name of src video
+        :param true_ids: [int] ids of true positives"""
+        self.name = name
+        self.src_video = src_video
+        self.output_video = output_video
+        self.true_ids = true_ids
+        self.points_in_frame = {} # {"frame_id": {"particle_ids": [int],"nodes": [[int]]}
+
+    def add_points(self, frame_id, particle_ids, nodes):
+        if frame_id not in self.points_in_frame:
+            self.points_in_frame[frame_id] = {"particle_ids": [], "nodes": []}
+        self.points_in_frame[frame_id]["particle_ids"] += particle_ids
+        """for node in nodes:
+            if node[0] > 490 or node[1] > 490:
+                plot_circles([[200, 200, 1]], [999], color=(0, 200, 0))
+                cv2.imshow("test", frame)
+                cv2.waitKey(0)
+                raise ValueError(f"node outside frame: {node}")"""
+        self.points_in_frame[frame_id]["nodes"] += [node[0:2] for node in nodes]
+
+def find_output_file_name(src_file_name):
+    i = 0
+    output_file_name = f'{src_file_name.split(".")[0]}_result_{i}.avi'
+    while os.path.exists(f'../video_log/{output_file_name}'):
+        i += 1
+        output_file_name = f'{src_file_name.split(".")[0]}_result_{i}.avi'
+    return output_file_name
+
 if __name__ == "__main__":
-    file_name = "A.mp4"
+    file_name = "A_trim.mp4"
+    output_file_name = find_output_file_name(file_name)
     vcap = cv2.VideoCapture(f"C:\\Users\\jinno\\Documents\\portfolio\\portfolio\\droplet_tracker\\video_source\\{file_name}")
-    TRAINING_DATA_PATH = "training_data/unlabeled"
     read_success, frame = vcap.read()
     tracking_points = None
     bubble_index2ids = {}
-    SHOW_EDGE_FRAME = True
     frame_id = 0
+    training_data_seed = TrainingDataSeed("A_trim", file_name, output_file_name, [20])
+    # This part is OS dependent
+    video_writer = cv2.VideoWriter(f'../video_log/{output_file_name}',
+                                   cv2.VideoWriter_fourcc(*"DIVX"),
+                                   1 / Parameters.dt, (frame.shape[1], frame.shape[0]))
     while read_success:
         # Normalize image
         cv2.normalize(frame, frame, 0, 255, norm_type=cv2.NORM_MINMAX)
         detecting_circles = get_circles(frame)
+
         if tracking_points is not None and detecting_circles is not None:
             tracking_points.predict_points()
-            # tracking_circles, tracking_kalman_filters = predict_tracking_circles(tracking_circles, tracking_kalman_filters)
             previous_index_of_bubble, current_index_of_bubble = track_circles(list(tracking_points.circles.values()),
                                                                               detecting_circles,
                                                                               list(tracking_points.age.values()),
                                                                               min_cost=Parameters.min_cost)
             newly_detected_circles, paired_circles = assign_ids_to_detected(detecting_circles, list(tracking_points.circles.keys()), current_index_of_bubble, previous_index_of_bubble)
-            #generate_training_data(frame, frame_id, detecting_circles, bubble_ids, 65, TRAINING_DATA_PATH)
         else:
             # First iteration
             newly_detected_circles, paired_circles = assign_ids_to_detected(detecting_circles, bubble_index2ids, [], [])
@@ -229,7 +242,7 @@ if __name__ == "__main__":
         tracking_points.update_points(paired_circles)
         tracking_points.remove_old_points()
 
-        print(f"time: {str(round(frame_id*1/30, 2))}" ) if frame_id % 30 == 0 else None
+        print(f"time: {str(round(frame_id*1/30, 2))}") if frame_id % 30 == 0 else None
 
 
         """# Edge detection to see what hough circle is looking at for debugging
@@ -249,17 +262,14 @@ if __name__ == "__main__":
         """cv2.imshow("test", edge_frame)
         cv2.waitKey(0)"""
 
+        # Add detected points to training_data
+        training_data_seed.add_points(frame_id,
+                                        list(newly_detected_circles.keys()) + list(paired_circles.keys()),
+                                        list(newly_detected_circles.values())+list(paired_circles.values()))
+
         # Save frames:
-        if frame_id == 0:
-            i = 0
-            while os.path.exists(f'../video_log/{file_name.split(".")[0]}_result_{i}.avi'):
-                i += 1
-            # This part is OS dependent
-            video_writer = cv2.VideoWriter(f'../video_log/{file_name.split(".")[0]}_result_{i}.avi',
-                                           cv2.VideoWriter_fourcc(*"DIVX"),
-                                           1/Parameters.dt, (frame.shape[1], frame.shape[0]))
-            print(f"{file_name.split('.')[0]}_result_{i}.avi")
-        else:
-            video_writer.write(frame)
+        video_writer.write(frame)
         frame_id += 1
         read_success, frame = vcap.read()
+    video_writer.release()
+    tg.generate_training_data(training_data_seed)
