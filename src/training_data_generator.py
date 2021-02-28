@@ -17,8 +17,8 @@ def crop_image(frame, crop_size, center):
     if crop_size % 2 == 0:
         raise ValueError("crop_size must be odd")
     # Crop image
-    x = center[0]
-    y = center[1]
+    x = center[1]
+    y = center[0]
     frame_x = frame.shape[1]
     frame_y = frame.shape[0]
     top_left = [int(x - (crop_size - 1) / 2), int(y - (crop_size - 1) / 2)]
@@ -98,7 +98,6 @@ def generate_training_data_image(frame_queue, frame_id, training_data_seed, dir)
     for i in range(len(points["nodes"])):
         crop_size = 65
         file_name = f"fid{frame_id}_pid{points['particle_ids'][i]}.jpg"
-
         cropped_image = crop_image(frame_queue[-1], crop_size, points["nodes"][i])
         success = cv2.imwrite(f"{dir}/image/{file_name}", cropped_image)
         if success is False:

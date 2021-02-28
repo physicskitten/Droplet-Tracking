@@ -183,7 +183,7 @@ class TrainingDataSeed:
         self.name = name
         self.src_video = src_video
         self.output_video = output_video
-        self.true_ids = true_ids
+        self.true_ids = set(true_ids)
         self.points_in_frame = {} # {"frame_id": {"particle_ids": [int],"nodes": [[int]]}
 
     def add_points(self, frame_id, particle_ids, nodes):
