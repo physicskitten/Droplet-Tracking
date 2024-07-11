@@ -2,12 +2,12 @@ import cv2
 import os
 import sys
 
+# This code is to open video files in a separate window. 
 # Path to the video file
 video_path = 'E:/Documents/JTestVid_3min.mp4'
 
 # Extract the file name from the path
 video_name = os.path.basename(video_path)
-
 # Get the name of the current script file
 script_name = os.path.basename(__file__)
 
