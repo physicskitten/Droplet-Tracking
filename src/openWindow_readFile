@@ -1,0 +1,105 @@
+import cv2
+import os
+import sys
+
+# Path to the video file
+video_path = 'E:/Documents/JTestVid_3min.mp4'
+
+# Extract the file name from the path
+video_name = os.path.basename(video_path)
+
+# Get the name of the current script file
+script_name = os.path.basename(__file__)
+
+# Create the window title
+window_title = f"{video_name} ({script_name})"
+
+# Create a VideoCapture object
+cap = cv2.VideoCapture(video_path)
+
+# Check if the video opened successfully
+if not cap.isOpened():
+    print("Error: Could not open video.")
+    cv2.imshow(window_title, cv2.imread(''))  # Display an empty frame
+    while True:
+        if cv2.waitKey(25) != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
+            break
+    cv2.destroyAllWindows()
+    sys.exit()
+
+# Create a named window with the ability to resize
+cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
+
+# Get the total number of frames and FPS of the video
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+fps = cap.get(cv2.CAP_PROP_FPS)
+duration_seconds = total_frames / fps
+
+# Function to handle trackbar movement
+def on_trackbar_move(pos):
+    # Set the video capture to the position defined by the trackbar
+    cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
+    # Read the frame at the new position
+    ret, frame = cap.read()
+    if ret:
+        # Calculate current time and duration
+        current_time = pos / fps
+        current_minutes = int(current_time // 60)
+        current_seconds = int(current_time % 60)
+        current_time_str = f"{current_minutes:02}:{current_seconds:02}"
+        total_minutes = int(duration_seconds // 60)
+        total_seconds = int(duration_seconds % 60)
+        total_hours = int(total_minutes // 60)
+        total_minutes %= 60
+        total_duration_str = f"{total_hours:02}:{total_minutes:02}:{total_seconds:02}"
+        # Add text overlay with current time and total duration
+        text_overlay = f"Time: {current_time_str} / Duration: {total_duration_str}"
+        cv2.putText(frame, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        # Display the resulting frame
+        cv2.imshow(window_title, frame)
+
+# Create a trackbar for navigation
+cv2.createTrackbar('Position', window_title, 0, total_frames - 1, on_trackbar_move)
+
+# Read and display video frames
+while True:
+    ret, frame = cap.read()
+    
+    if not ret:
+        print("Reached the end of the video.")
+        break
+
+    # Calculate current time and duration
+    current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+    current_time = current_frame / fps
+    current_minutes = int(current_time // 60)
+    current_seconds = int(current_time % 60)
+    current_time_str = f"{current_minutes:02}:{current_seconds:02}"
+    total_minutes = int(duration_seconds // 60)
+    total_seconds = int(duration_seconds % 60)
+    total_hours = int(total_minutes // 60)
+    total_minutes %= 60
+    total_duration_str = f"{total_hours:02}:{total_minutes:02}:{total_seconds:02}"
+
+    # Add text overlay with current time and total duration
+    text_overlay = f"Time: {current_time_str} / Duration: {total_duration_str}"
+    cv2.putText(frame, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+   
+    # Display the resulting frame
+    cv2.imshow(window_title, frame)
+    
+    # Check if the window was closed or any key was pressed
+    if cv2.waitKey(25) != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
+        break
+
+# Show the last frame indefinitely until a key is pressed or window is closed
+if not ret:
+    cv2.imshow(window_title, frame)
+    print("Paused on the last frame. Press any key to exit.")
+    while True:
+        if cv2.waitKey(25) != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
+            break
+
+# Release the video capture object and close display windows
+cap.release()
+cv2.destroyAllWindows()
