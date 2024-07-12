@@ -35,6 +35,54 @@ total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 fps = cap.get(cv2.CAP_PROP_FPS)
 duration_seconds = total_frames / fps
 
+# Function to detect the circle and calculate the crop coordinates
+def get_crop_coordinates(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.medianBlur(gray, 5)
+    circles = cv2.HoughCircles(
+        gray, cv2.HOUGH_GRADIENT, dp=1.2, minDist=100,
+        param1=100, param2=30, minRadius=0, maxRadius=0
+    )
+
+    if circles is not None:
+        circles = circles[0, :].astype("int")
+        x, y, r = circles[0]
+
+        side_length = 2 * r
+        start_x = max(0, x - r)
+        start_y = max(0, y - r)
+        end_x = start_x + side_length
+        end_y = start_y + side_length
+
+        height, width, _ = frame.shape
+        if end_x > width:
+            start_x = width - side_length
+        if end_y > height:
+            start_y = height - side_length
+
+        return start_x, start_y, side_length
+    return None
+
+# Function to crop the frame using precomputed coordinates
+def crop_frame(frame, crop_coords):
+    start_x, start_y, side_length = crop_coords
+    return frame[start_y:start_y + side_length, start_x:start_x + side_length]
+
+# Read the first frame and determine the crop coordinates
+ret, first_frame = cap.read()
+if not ret:
+    print("Error: Could not read the first frame.")
+    cap.release()
+    cv2.destroyAllWindows()
+    sys.exit()
+
+crop_coords = get_crop_coordinates(first_frame)
+if not crop_coords:
+    print("Error: Could not detect the circle in the first frame.")
+    cap.release()
+    cv2.destroyAllWindows()
+    sys.exit()
+
 # Function to handle trackbar movement
 def on_trackbar_move(pos):
     # Set the video capture to the position defined by the trackbar
