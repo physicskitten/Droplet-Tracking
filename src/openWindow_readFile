@@ -61,9 +61,12 @@ def on_trackbar_move(pos):
 # Create a trackbar for navigation
 cv2.createTrackbar('Position', window_title, 0, total_frames - 1, on_trackbar_move)
 
+paused = False
+
 # Read and display video frames
 while True:
-    ret, frame = cap.read()
+    if not paused:
+        ret, frame = cap.read()
     
     if not ret:
         print("Reached the end of the video.")
@@ -88,8 +91,10 @@ while True:
     # Display the resulting frame
     cv2.imshow(window_title, frame)
     
-    # Check if the window was closed or any key was pressed
-    if cv2.waitKey(25) != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
+    key = cv2.waitKey(25)
+    if key == 32:  # Space bar to pause/resume
+        paused = not paused
+    elif key != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
         break
 
 # Show the last frame indefinitely until a key is pressed or window is closed
