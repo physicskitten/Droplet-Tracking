@@ -2,7 +2,6 @@ import cv2
 import os
 import sys
 
-# This code is to open video files in a separate window. 
 # Path to the video file
 video_path = 'E:/Documents/JTestVid_3min.mp4'
 
@@ -48,9 +47,11 @@ def get_crop_coordinates(frame):
         circles = circles[0, :].astype("int")
         x, y, r = circles[0]
 
-        side_length = 2 * r
-        start_x = max(0, x - r)
-        start_y = max(0, y - r)
+        # Adjust the crop to center around the black circle within the copper circle
+        black_circle_r = int(0.75 * r)
+        side_length = 2 * black_circle_r
+        start_x = max(0, x - black_circle_r)
+        start_y = max(0, y - black_circle_r)
         end_x = start_x + side_length
         end_y = start_y + side_length
 
@@ -83,6 +84,9 @@ if not crop_coords:
     cv2.destroyAllWindows()
     sys.exit()
 
+# Apply the crop to the first frame
+first_frame_cropped = crop_frame(first_frame, crop_coords)
+
 # Function to handle trackbar movement
 def on_trackbar_move(pos):
     # Set the video capture to the position defined by the trackbar
@@ -90,6 +94,8 @@ def on_trackbar_move(pos):
     # Read the frame at the new position
     ret, frame = cap.read()
     if ret:
+        # Crop the frame
+        frame_cropped = crop_frame(frame, crop_coords)
         # Calculate current time and duration
         current_time = pos / fps
         current_minutes = int(current_time // 60)
@@ -102,9 +108,9 @@ def on_trackbar_move(pos):
         total_duration_str = f"{total_hours:02}:{total_minutes:02}:{total_seconds:02}"
         # Add text overlay with current time and total duration
         text_overlay = f"Time: {current_time_str} / Duration: {total_duration_str}"
-        cv2.putText(frame, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(frame_cropped, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         # Display the resulting frame
-        cv2.imshow(window_title, frame)
+        cv2.imshow(window_title, frame_cropped)
 
 # Create a trackbar for navigation
 cv2.createTrackbar('Position', window_title, 0, total_frames - 1, on_trackbar_move)
@@ -120,6 +126,9 @@ while True:
         print("Reached the end of the video.")
         break
 
+    # Crop the frame
+    frame_cropped = crop_frame(frame, crop_coords)
+    
     # Calculate current time and duration
     current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
     current_time = current_frame / fps
@@ -134,10 +143,10 @@ while True:
 
     # Add text overlay with current time and total duration
     text_overlay = f"Time: {current_time_str} / Duration: {total_duration_str}"
-    cv2.putText(frame, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(frame_cropped, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
    
     # Display the resulting frame
-    cv2.imshow(window_title, frame)
+    cv2.imshow(window_title, frame_cropped)
     
     key = cv2.waitKey(25)
     if key == 32:  # Space bar to pause/resume
@@ -147,7 +156,7 @@ while True:
 
 # Show the last frame indefinitely until a key is pressed or window is closed
 if not ret:
-    cv2.imshow(window_title, frame)
+    cv2.imshow(window_title, frame_cropped)
     print("Paused on the last frame. Press any key to exit.")
     while True:
         if cv2.waitKey(25) != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
