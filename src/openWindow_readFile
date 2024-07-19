@@ -101,7 +101,8 @@ if not crop_coords:
 first_frame_masked = crop_and_mask_frame(first_frame, crop_coords)
 
 # Define the codec and create a VideoWriter object
-output_path = os.path.join(os.path.dirname(__file__), 'cropped_output.mp4')
+output_filename = f"Crop_{video_name}"
+output_path = os.path.join(os.path.dirname(__file__), output_filename)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (first_frame_masked.shape[1], first_frame_masked.shape[0]))
 
