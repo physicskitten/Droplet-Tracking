@@ -44,11 +44,12 @@ def get_crop_coordinates(frame):
     )
 
     if circles is not None:
-        circles = circles[0, :].astype("int")
-        x, y, r = circles[0]
+        circles2 = circles[0, :].astype("int")
+        x, y, r = circles2[0] # The ith detected circle that centres the crop
+        x1, y1, r1 = circles2[95] # The ith detected circle that determines the radius of the red circle and mask
 
         # Adjust the crop to center around the black circle within the copper circle
-        black_circle_r = int(0.75 * r)
+        black_circle_r = int(0.75 * r1)
         side_length = 2 * black_circle_r
         start_x = max(0, x - black_circle_r)
         start_y = max(0, y - black_circle_r)
@@ -75,6 +76,9 @@ def crop_and_mask_frame(frame, crop_coords):
 
     # Apply the mask to the frame
     masked_frame = cv2.bitwise_and(cropped_frame, mask)
+    
+    # Draw a bright red line around the black circle
+    cv2.circle(masked_frame, (circle_x - start_x, circle_y - start_y), circle_r, (0, 0, 255), 3)
     
     return masked_frame
 
