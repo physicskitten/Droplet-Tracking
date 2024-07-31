@@ -1,56 +1,46 @@
 import numpy as np
 
 class KalmanFilter():
-    def __init__(self, position, dt, std_acceleration, std_measurement):
+    def __init__(self, position_vector, dt, std_acceleration, std_measurement):
         self.dt = dt
         self.std_acceleration = std_acceleration
-        self.std_measurement = std_measurement
         
         # State transition matrix
-        self.A = np.matrix([[1, self.dt],
-                            [0, 1]])
-        
-        # Control matrix (not used in this case, but here for completeness)
-        self.B = np.matrix([[0.5 * (self.dt**2)],
-                            [self.dt]])
-        
+        self.state_transition_matrix = np.matrix([[1, self.dt],
+                                                  [0, 1]])
         # Measurement matrix
-        self.H = np.matrix([[1, 0]])
+        self.measurement_matrix = np.matrix([[1, 0]])
         
-        # Process noise covariance matrix
-        self.Q = np.matrix([[self.dt**4 / 4, self.dt**3 / 2],
-                            [self.dt**3 / 2, self.dt**2]]) * self.std_acceleration**2
+        # Process covariance matrix
+        self.state_covariance_matrix = np.matrix([[(self.dt**4)/4, (self.dt**3)/2],
+                                                  [(self.dt**3)/2, self.dt**2]]) * self.std_acceleration
         
-        # Measurement noise covariance matrix
-        self.R = np.matrix([[self.std_measurement**2]])
+        # Measurement covariance matrix
+        self.measurement_covariance_matrix = std_measurement**2
         
-        # Initial state estimate
-        self.x = np.matrix([[position],
-                            [0]])  # Initial velocity is assumed to be zero
-        
-        # Initial covariance estimate
+        # Initial state covariance
         self.P = np.eye(2)
+        
+        # Initial state vector (position and velocity)
+        self.X = np.matrix([[position_vector[0]], [0]])  # Initialize with position and zero velocity
 
     def predict(self):
-        # Predict the next state
-        self.x = self.A * self.x
-        self.P = self.A * self.P * self.A.T + self.Q
+        # Predict the state and covariance
+        self.X = self.state_transition_matrix * self.X
+        self.P = self.state_transition_matrix * self.P * self.state_transition_matrix.T + self.state_covariance_matrix
 
     def update(self, z):
-        # Compute the Kalman gain
-        S = self.H * self.P * self.H.T + self.R
-        K = self.P * self.H.T * np.linalg.inv(S)
+        # Kalman Gain
+        S = self.measurement_matrix * self.P * self.measurement_matrix.T + self.measurement_covariance_matrix
+        K = self.P * self.measurement_matrix.T * np.linalg.inv(S)
         
-        # Update the estimate via measurement z
-        y = z - self.H * self.x  # Innovation or residual
-        self.x = self.x + K * y
+        # Update the estimate
+        Y = np.matrix(z).T - self.measurement_matrix * self.X
+        self.X = self.X + K * Y
         
-        # Update the error covariance
-        I = np.eye(self.A.shape[0])
-        self.P = (I - K * self.H) * self.P
+        # Update the state covariance
+        I = np.eye(self.P.shape[0])
+        self.P = (I - K * self.measurement_matrix) * self.P
 
     def get_position(self):
-        return self.x[0, 0]
-
-    def get_velocity(self):
-        return self.x[1, 0]
+        return self.X[0, 0], self.X[1, 0]
