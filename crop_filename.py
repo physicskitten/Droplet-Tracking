@@ -4,7 +4,7 @@ import sys
 import numpy as np
 
 # Path to the video file
-video_path = 'F:/Documents/JTestVid_3min.mp4'
+video_path = 'E:/USB/Documents/VTestVid_9.mp4'
 
 # Extract the file name from the path
 video_name = os.path.basename(video_path)
@@ -46,10 +46,10 @@ def get_crop_coordinates(frame):
     if circles is not None:
         circles2 = circles[0, :].astype("int")
         x, y, r = circles2[0] # The ith detected circle that centres the crop
-        x1, y1, r1 = circles2[95] # The ith detected circle that determines the radius of the red circle and mask
+        x1, y1, r1 = circles2[40] # The ith detected circle that determines the radius of the red circle and mask
 
         # Adjust the crop to center around the black circle within the copper circle
-        black_circle_r = int(0.75 * r1)
+        black_circle_r = int(0.51 * r1)  # Precentage of originally detected circle
         side_length = 2 * black_circle_r
         start_x = max(0, x - black_circle_r)
         start_y = max(0, y - black_circle_r)
@@ -161,8 +161,8 @@ while True:
     total_duration_str = f"{total_hours:02}:{total_minutes:02}:{total_seconds:02}"
 
     # Add text overlay with current time and total duration
-    text_overlay = f"Time: {current_time_str} / Duration: {total_duration_str}"
-    cv2.putText(frame_masked, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    #text_overlay = f"Time: {current_time_str} / Duration: {total_duration_str}"
+    #cv2.putText(frame_masked, text_overlay, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
    
     # Write the masked frame to the output video file
     out.write(frame_masked)
