@@ -7,7 +7,7 @@ from scipy.optimize import linear_sum_assignment
 import time
 
 # Path to the video file
-video_path = 'E:/USB/Documents/VTestVid_13.mp4'
+video_path = 'E:/USB/Documents/VTestVid_12.mp4'
 
 # Extract the file name and directory
 video_dir = os.path.dirname(video_path)
@@ -45,9 +45,6 @@ selecting_area = False
 frame = None
 last_frame_cropped = None  # Initialize last_frame_cropped
 
-# Initialize tracking time dictionary
-tracked_droplet_times = {}
-
 # Mouse callback function for selecting and resizing the tracking area
 def select_area(event, x, y, flags, param):
     global circle_center, circle_radius, selecting_area, frame
@@ -83,7 +80,7 @@ def apply_circular_mask(frame, center, radius):
 # Function to process frame based on the selected area
 def process_frame(frame):
     global circle_center, circle_radius
-    global tracked_objects, object_id, paths, colors, tracked_droplet_times  # Reference global variables
+    global tracked_objects, object_id, paths, colors  # Reference global variables
 
     if circle_center and circle_radius > 0:
         # Apply the circular mask to the full frame
@@ -120,20 +117,8 @@ def process_frame(frame):
                 new_tracked_objects = {}
                 for row, col in zip(rows, cols):
                     new_tracked_objects[object_ids[row]] = tuple(detected_centroids[col])
-                    # Reset tracking time for matched droplets
-                    tracked_droplet_times[object_ids[row]] = time.time()
                 
                 tracked_objects = new_tracked_objects
-            else:
-                # Update tracking duration and remove droplets if not tracked for more than 3 seconds
-                to_remove = []
-                for obj_id, track_start_time in tracked_droplet_times.items():
-                    if time.time() - track_start_time > 3:
-                        to_remove.append(obj_id)
-                
-                for obj_id in to_remove:
-                    tracked_droplet_times.pop(obj_id, None)
-                    tracked_objects.pop(obj_id, None)
 
         for centroid in detected_centroids:
             if len(tracked_objects) < expected_droplets:
@@ -142,12 +127,16 @@ def process_frame(frame):
                         tracked_objects[object_id] = centroid
                         paths[object_id] = [centroid]
                         colors[object_id] = generate_random_color()
-                        tracked_droplet_times[object_id] = time.time()  # Start tracking time for new droplets
                         object_id += 1
 
         for obj_id, (cx, cy) in tracked_objects.items():
             cv2.putText(masked_frame, f"{obj_id}", (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
             paths[obj_id].append((cx, cy))
+            for j in range(1, len(paths[obj_id])):
+                cv2.line(masked_frame, paths[obj_id][j-1], paths[obj_id][j], colors[obj_id], 2)
+
+        # Draw the paths of all droplets, even those that have disappeared
+        for obj_id in paths:
             for j in range(1, len(paths[obj_id])):
                 cv2.line(masked_frame, paths[obj_id][j-1], paths[obj_id][j], colors[obj_id], 2)
 
@@ -232,7 +221,6 @@ while True:
         tracked_objects = {}
         paths = {}
         colors = {}
-        tracked_droplet_times = {}  # Reset tracking times
         paused = False
     elif key == ord('r'):  # 'r' key to reset selection
         circle_center = None
