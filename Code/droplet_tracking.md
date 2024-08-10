@@ -1,7 +1,5 @@
 # Droplet_Tracking.py README.md
 
-This `README.md` provides guidance for using the `droplet_tracking.py` script within this repository.
-
 ## Overview
 
 `droplet_tracking.py` is a Python script that tracks droplets within a video, allowing manual selection of an area of interest. The output is a new video with tracking information overlaid, saved in the same directory as the original video.
