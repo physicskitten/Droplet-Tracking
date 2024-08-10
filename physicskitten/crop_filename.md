@@ -2,7 +2,7 @@
 
 ## Overview
 
-The script processes a video to detect a circular area of interest in the first frame. It then crops the video around this circle and applies a mask to highlight the detected area. The processed video is saved with a red circle drawn around the detected area. Additionally, the script provides a trackbar for frame navigation and displays the current playback time. This code was developed in attempt to pre-process and reduce external background noise from videos before running through "circle_detection.py". 
+The script processes a video to detect a circular area of interest in the first frame. It then crops the video around this circle and applies a mask to highlight the detected area. The processed video is saved with a red circle drawn around the detected area. Additionally, the script provides a trackbar for frame navigation and displays the current playback time. This code was developed in attempt to pre-process and reduce external background noise from videos before running through "circle_detection.py" previously developed by TJ-coding.
 
 ## Usage
 
