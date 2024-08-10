@@ -7,26 +7,24 @@
 ## Usage
 
 ### Set the Video Path
+- Update the `video_path` variable in the script to point to the video file you want to analyze.
+  ```python
+  video_path = 'E:/USB/Documents/VTestVid_9.mp4'
 
-Modify the `video_path` variable in the script to the path of your video file.
-
-```python
-video_path = 'path/to/your/video.mp4'```
-
-# Run the Script
+### Run the script:
 Execute the script in your Python environment.
 
-## User Input
+### User Input
 - Enter the expected number of droplets.
 - Select the area of interest by clicking and dragging to create a circular region.
 
-## Playback Controls
+### Playback Controls
 - **Space bar**: Pause/Resume playback.
 - **Enter key**: Restart the video.
 - **r key**: Reset the selection area.
 - **Trackbar**: Navigate through frames.
 
-## Output
+### Output
 The script saves a processed video with `_result` appended to the original filename, showing tracked droplets.
 
 ## Key Features
