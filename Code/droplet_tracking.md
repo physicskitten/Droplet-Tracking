@@ -11,7 +11,7 @@
 Modify the `video_path` variable in the script to the path of your video file.
 
 ```python
-video_path = 'path/to/your/video.mp4'
+video_path = 'path/to/your/video.mp4'```
 
 # Run the Script
 Execute the script in your Python environment.
