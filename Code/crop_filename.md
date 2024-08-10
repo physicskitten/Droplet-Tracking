@@ -1,7 +1,5 @@
 # Circle Detection and Video Cropping Script
 
-This `README.md` provides information about the Python script designed for detecting circles in a video, cropping the video based on the detected circle, and applying a mask to highlight the circle. The script also allows for video playback with the ability to navigate frames using a trackbar.
-
 ## Overview
 
 The script processes a video to detect a circular area of interest in the first frame. It then crops the video around this circle and applies a mask to highlight the detected area. The processed video is saved with a red circle drawn around the detected area. Additionally, the script provides a trackbar for frame navigation and displays the current playback time. This code was developed in attempt to pre-process and reduce external background noise from videos before running through "circle_detection.py". 
