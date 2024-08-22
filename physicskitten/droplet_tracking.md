@@ -76,7 +76,16 @@ The script saves a processed video with `_result` appended to the original filen
 - `generate_random_color()`: Generates distinct colors for tracking paths.
 - `process_and_display_frame(frame, pos)`: Manages frame processing and visualization.
 
+## Known Issues (Work in Progress/ Future Work)
+- Object tracking may be inaccurate if the number of detected droplets exceeds the expected_droplets count. This can result in tracking errors or loss of tracked objects.
+- Tracking might fail for droplets that move too quickly or overlap significantly, causing the tracking algorithm to lose their positions.
+- Video processing does not automatically crop and reduce the frame size of video after area for analysis has been selected.
+- Droplet detection still not accurate enough, machine learning image recognition could potentially be applied in the future.
+
 ## Dependencies
 - **OpenCV**: For video processing, background subtraction, and object detection.
 - **NumPy**: For numerical array operations.
 - **SciPy**: For spatial calculations and optimization.
+
+## Example Result
+https://github.com/user-attachments/assets/d2baa5e5-f67d-4513-b99e-ea72c93bd40c
