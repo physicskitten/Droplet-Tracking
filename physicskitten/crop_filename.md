@@ -45,3 +45,5 @@ The script processes a video to detect a circular area of interest in the first 
   
 - **Output:** The processed frames are saved into a new video file with the same FPS as the original.
 
+## Example Result
+https://github.com/user-attachments/assets/1da292d6-2466-4300-a36f-ec595a36b8df
