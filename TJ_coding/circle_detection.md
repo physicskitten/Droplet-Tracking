@@ -1,7 +1,7 @@
 # circle_detection.py
 
 ## Overview
-`circle_detection.py` is a Python script designed for detecting and tracking circles in a video using computer vision techniques. It utilizes OpenCV for image processing, Kalman Filters for tracking, and the Hungarian algorithm for matching detected circles across frames. The primary application is tracking bubbles or particles in a video sequence and generating training data from the detected circles.
+`circle_detection.py` is a Python script designed for detecting and tracking circles in a video using computer vision techniques. It utilizes OpenCV for image processing, Kalman Filters for tracking, and the Hungarian algorithm for matching detected circles across frames. The primary application is tracking droplets of oil in a video sequence and generating training data from the detected circles.
 
 ## Dependencies
 The script requires the following libraries:
