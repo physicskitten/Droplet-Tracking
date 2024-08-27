@@ -6,48 +6,9 @@ from scipy.spatial import distance
 from scipy.optimize import linear_sum_assignment
 import time
 
-# Path to the video file
-video_path = 'E:/USB/Documents/VTestVid_12.mp4'
-
-# Extract the file name and directory
-video_dir = os.path.dirname(video_path)
-video_name = os.path.basename(video_path)
-video_base, video_ext = os.path.splitext(video_name)
-
-# Output video path (changed to include "_result")
-output_video_path = os.path.join(video_dir, f"{video_base}_result{video_ext}")
-
-# Create a VideoCapture object
-cap = cv2.VideoCapture(video_path)
-
-# Check if the video opened successfully
-if not cap.isOpened():
-    print("Error: Could not open video.")
-    cv2.imshow(video_name, np.zeros((1, 1, 3), dtype=np.uint8))  # Display an empty frame
-    while True:
-        if cv2.waitKey(25) != -1 or cv2.getWindowProperty(video_name, cv2.WND_PROP_VISIBLE) < 1:
-            break
-    cv2.destroyAllWindows()
-    sys.exit()
-
-# Get the total number of frames and FPS of the video
-total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-fps = cap.get(cv2.CAP_PROP_FPS)
-duration_seconds = total_frames / fps
-
-# Prompt the user for the expected number of droplets
-expected_droplets = int(input("Enter the expected number of droplets in the video: "))
-
-# Variables for circular area selection
-circle_center = None
-circle_radius = 0
-selecting_area = False
-frame = None
-last_frame_cropped = None  # Initialize last_frame_cropped
-
 # Mouse callback function for selecting and resizing the tracking area
 def select_area(event, x, y, flags, param):
-    global circle_center, circle_radius, selecting_area, frame
+    global circle_center, circle_radius, selecting_area, frame, window_title
 
     if event == cv2.EVENT_LBUTTONDOWN:
         circle_center = (x, y)
@@ -65,11 +26,6 @@ def select_area(event, x, y, flags, param):
             cv2.circle(display_frame, circle_center, circle_radius, (0, 255, 0), 2)
         cv2.imshow(window_title, display_frame)
 
-# Create a window with the specified title
-window_title = f"{video_name}"
-cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
-cv2.setMouseCallback(window_title, select_area)
-
 # Function to mask a frame based on the circular area
 def apply_circular_mask(frame, center, radius):
     mask = np.zeros_like(frame, dtype=np.uint8)
@@ -77,10 +33,14 @@ def apply_circular_mask(frame, center, radius):
     masked_frame = cv2.bitwise_and(frame, mask)
     return masked_frame
 
+# Function to generate a random color
+def generate_random_color():
+    return tuple(np.random.randint(0, 255, 3).tolist())
+
 # Function to process frame based on the selected area
 def process_frame(frame):
     global circle_center, circle_radius
-    global tracked_objects, object_id, paths, colors  # Reference global variables
+    global tracked_objects, object_id, paths, colors, fgbg
 
     if circle_center and circle_radius > 0:
         # Apply the circular mask to the full frame
@@ -143,20 +103,9 @@ def process_frame(frame):
         return masked_frame
     return frame
 
-# Background subtractor (using MOG2 method)
-fgbg = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=False)
-
-# Initialize trackers
-object_id = 0
-tracked_objects = {}  # {id: (x, y)}
-paths = {}  # {id: [(x1, y1), (x2, y2), ...]}
-colors = {}  # {id: (B, G, R)}
-
-def generate_random_color():
-    return tuple(np.random.randint(0, 255, 3).tolist())
-
+# Function to process and display frame
 def process_and_display_frame(frame, pos):
-    global object_id, tracked_objects, paths, colors, last_frame_cropped
+    global object_id, tracked_objects, paths, colors, last_frame_cropped, fps, duration_seconds
 
     frame_processed = process_frame(frame)
     current_time = pos / fps
@@ -172,70 +121,149 @@ def process_and_display_frame(frame, pos):
     cv2.imshow(window_title, frame_processed)
     last_frame_cropped = frame_processed  # Update last_frame_cropped with the current frame
 
-# Initialize VideoWriter
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Use 'XVID' or 'MJPG' for .avi files
-out = cv2.VideoWriter(output_video_path, fourcc, fps, (int(cap.get(3)), int(cap.get(4))))
+def main():
+    global video_path, video_dir, video_name, video_base, video_ext, output_video_path
+    global cap, total_frames, fps, duration_seconds
+    global expected_droplets
+    global circle_center, circle_radius, selecting_area, frame, last_frame_cropped, window_title
+    global fgbg
+    global object_id, tracked_objects, paths, colors
 
-# Create a trackbar for navigation
-cv2.createTrackbar('Position', window_title, 0, total_frames - 1, lambda pos: cap.set(cv2.CAP_PROP_POS_FRAMES, pos))
+    # Path to the video file
+    video_path = 'E:/USB/Documents/VTestVid_12.mp4'
 
-paused = True  # Start with the video paused
-current_pos = 0
+    # Extract the file name and directory
+    video_dir = os.path.dirname(video_path)
+    video_name = os.path.basename(video_path)
+    video_base, video_ext = os.path.splitext(video_name)
 
-# Initially display the first frame
-ret, frame = cap.read()
-if ret:
-    current_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
-    process_and_display_frame(frame, current_pos)
+    # Output video path (changed to include "_result")
+    output_video_path = os.path.join(video_dir, f"{video_base}_result{video_ext}")
 
-while True:
-    if not paused:
-        ret, frame = cap.read()
-        if not ret:
-            print("Reached the end of the video.")
-            break
+    # Create a VideoCapture object
+    cap = cv2.VideoCapture(video_path)
+
+    # Check if the video opened successfully
+    if not cap.isOpened():
+        print("Error: Could not open video.")
+        empty_frame = np.zeros((1, 1, 3), dtype=np.uint8)
+        cv2.imshow(video_name, empty_frame)  # Display an empty frame
+        while True:
+            if cv2.waitKey(25) != -1 or cv2.getWindowProperty(video_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+        cv2.destroyAllWindows()
+        sys.exit()
+
+    # Get the total number of frames and FPS of the video
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    duration_seconds = total_frames / fps
+
+    # Prompt the user for the expected number of droplets
+    try:
+        expected_droplets = int(input("Enter the expected number of droplets in the video: "))
+    except ValueError:
+        print("Invalid input. Please enter an integer.")
+        cap.release()
+        sys.exit()
+
+    # Initialize variables for circular area selection
+    circle_center = None
+    circle_radius = 0
+    selecting_area = False
+    frame = None
+    last_frame_cropped = None  # Initialize last_frame_cropped
+
+    # Create a window with the specified title
+    window_title = f"{video_name}"
+    cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
+    cv2.setMouseCallback(window_title, select_area)
+
+    # Background subtractor (using MOG2 method)
+    fgbg = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=False)
+
+    # Initialize trackers
+    object_id = 0
+    tracked_objects = {}  # {id: (x, y)}
+    paths = {}  # {id: [(x1, y1), (x2, y2), ...]}
+    colors = {}  # {id: (B, G, R)}
+
+    # Initialize VideoWriter
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Use 'XVID' or 'MJPG' for .avi files
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    out = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_width, frame_height))
+
+    # Create a trackbar for navigation
+    cv2.createTrackbar('Position', window_title, 0, total_frames - 1, lambda pos: cap.set(cv2.CAP_PROP_POS_FRAMES, pos))
+
+    paused = True  # Start with the video paused
+    current_pos = 0
+
+    # Initially display the first frame
+    ret, frame = cap.read()
+    if ret:
         current_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
         process_and_display_frame(frame, current_pos)
-        if circle_center and circle_radius > 0:
-            last_frame_cropped = process_frame(frame)
+    else:
+        print("Error: Could not read the first frame.")
+        cap.release()
+        out.release()
+        cv2.destroyAllWindows()
+        sys.exit()
 
-        # Write the processed frame to the output video file
-        if frame is not None:
-            processed_frame = process_frame(frame)
-            out.write(processed_frame)
-
-    key = cv2.waitKey(25)
-    if key == 32:  # Space bar to pause/resume
-        paused = not paused
-        if paused:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, current_pos - 1)
-            if last_frame_cropped is not None:
-                cv2.imshow(window_title, last_frame_cropped)
-            else:
-                cv2.imshow(window_title, frame)
-        else:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, current_pos)
-    elif key == 13:  # Enter key to replay
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        object_id = 0
-        tracked_objects = {}
-        paths = {}
-        colors = {}
-        paused = False
-    elif key == ord('r'):  # 'r' key to reset selection
-        circle_center = None
-        circle_radius = 0
-    elif key != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
-        break
-
-if last_frame_cropped is not None:
-    cv2.imshow(window_title, last_frame_cropped)
-    print("Paused on the last frame. Press any key to exit.")
     while True:
-        if cv2.waitKey(25) != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
+        if not paused:
+            ret, frame = cap.read()
+            if not ret:
+                print("Reached the end of the video.")
+                break
+            current_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+            process_and_display_frame(frame, current_pos)
+            if circle_center and circle_radius > 0:
+                last_frame_cropped = process_frame(frame)
+
+            # Write the processed frame to the output video file
+            if frame is not None:
+                processed_frame = process_frame(frame)
+                out.write(processed_frame)
+
+        key = cv2.waitKey(25)
+        if key == 32:  # Space bar to pause/resume
+            paused = not paused
+            if paused:
+                # Move back one frame to prevent skipping
+                cap.set(cv2.CAP_PROP_POS_FRAMES, current_pos - 1)
+                if last_frame_cropped is not None:
+                    cv2.imshow(window_title, last_frame_cropped)
+                else:
+                    cv2.imshow(window_title, frame)
+            else:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, current_pos)
+        elif key == 13:  # Enter key to replay
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            object_id = 0
+            tracked_objects = {}
+            paths = {}
+            colors = {}
+            paused = False
+        elif key == ord('r'):  # 'r' key to reset selection
+            circle_center = None
+            circle_radius = 0
+        elif key != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
             break
 
-# Release video capture and writer objects
-cap.release()
-out.release()
-cv2.destroyAllWindows()
+    if last_frame_cropped is not None:
+        cv2.imshow(window_title, last_frame_cropped)
+        print("Paused on the last frame. Press any key to exit.")
+        while True:
+            if cv2.waitKey(25) != -1 or cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
+                break
+
+    # Release video capture and writer objects
+    cap.release()
+    out.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
